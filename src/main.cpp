@@ -3,6 +3,16 @@
 #include <iostream>
 #include "definitions.hpp"
 #include <string>
+#include <algorithm>
+
+struct GameBrick {
+    sf::Sprite sprite;
+    int hp;
+
+    GameBrick(const sf::Texture& texture) : sprite(texture) {
+        hp = 1;
+    }
+};
 
 int main() {
     sf::RenderWindow window(sf::VideoMode({(unsigned int)WINDOW_WIDTH, (unsigned int)WINDOW_HEIGHT}), "Arkanoid - Pro Build");
@@ -54,21 +64,31 @@ int main() {
     }
 
     sf::Sprite paddle(paddleTexture);
-    paddle.setPosition({(WINDOW_WIDTH - PADDLE_WIDTH) / 2.f, WINDOW_HEIGHT - 50.f});
+    paddle.setScale(sf::Vector2f(
+        (float)PADDLE_WIDTH / paddle.getLocalBounds().size.x,
+        (float)PADDLE_HEIGHT / paddle.getLocalBounds().size.y
+    ));
+    paddle.setPosition(sf::Vector2f(
+        (WINDOW_WIDTH - paddle.getGlobalBounds().size.x) / 2.f,
+        WINDOW_HEIGHT - 50.f
+    ));
 
     sf::Sprite ball(ballTexture);
-    ball.setPosition({WINDOW_WIDTH / 2.f, WINDOW_HEIGHT / 2.f});
+    ball.setPosition(sf::Vector2f{WINDOW_WIDTH / 2.f, WINDOW_HEIGHT / 2.f});
     sf::Vector2f ballVelocity({BALL_SPEED_X, BALL_SPEED_Y});
 
-    std::vector<sf::Sprite> bricks;
-    bool levelCleared = false; // ← BURASI KRİTİK, DÖNGÜNÜN DIŞINDA
+    std::vector<GameBrick> bricks;
+    bool levelCleared = false;
 
     for (int i = 0; i < 8; ++i) {
-        for (int j = 0; j < 1; ++j) {
-            sf::Sprite brick(brickTexture);
-            brick.setScale({(float)BRICK_WIDTH / brick.getLocalBounds().size.x,
-                            (float)BRICK_HEIGHT / brick.getLocalBounds().size.y});
-            brick.setPosition({
+        for (int j = 0; j < 4; ++j) {
+            GameBrick brick(brickTexture);
+            brick.hp = 1;
+            brick.sprite.setScale(sf::Vector2f(
+                (float)BRICK_WIDTH / brick.sprite.getLocalBounds().size.x,
+                (float)BRICK_HEIGHT / brick.sprite.getLocalBounds().size.y
+            ));
+            brick.sprite.setPosition(sf::Vector2f{
                 (float)i * (BRICK_WIDTH + BRICK_OFFSET) + 15.f,
                 (float)j * (BRICK_HEIGHT + BRICK_OFFSET) + 50.f
             });
@@ -83,7 +103,7 @@ int main() {
 
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left) && paddle.getPosition().x > 0)
             paddle.move({-PADDLE_SPEED, 0.f});
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right) && paddle.getPosition().x < WINDOW_WIDTH - PADDLE_WIDTH)
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right) && paddle.getPosition().x < WINDOW_WIDTH - paddle.getGlobalBounds().size.x)
             paddle.move({PADDLE_SPEED, 0.f});
 
         ball.move(ballVelocity);
@@ -93,66 +113,81 @@ int main() {
         if (ball.getPosition().y < 0)
             ballVelocity.y = -ballVelocity.y;
 
-        if (ball.getPosition().y > WINDOW_HEIGHT){
+        if (ball.getPosition().y > WINDOW_HEIGHT) {
             ball.setPosition({WINDOW_WIDTH / 2.f, WINDOW_HEIGHT / 2.f});
             ballVelocity = {BALL_SPEED_X, -BALL_SPEED_Y};
         }
-           
 
         if (ball.getGlobalBounds().findIntersection(paddle.getGlobalBounds()))
             ballVelocity.y = -std::abs(ballVelocity.y);
 
-        for (int i = 0; i < (int)bricks.size(); ++i) {
-            if (ball.getGlobalBounds().findIntersection(bricks[i].getGlobalBounds())) {
+        for (auto it = bricks.begin(); it != bricks.end(); ) {
+            if (ball.getGlobalBounds().findIntersection(it->sprite.getGlobalBounds())) {
                 ballVelocity.y = -ballVelocity.y;
-                bricks.erase(bricks.begin() + i);
-                score += 10;
-                scoreText.setString("SCORE: " + std::to_string(score) + "  LEVEL: " + std::to_string(level));
-                if (score % 50 == 0) {
-                    paddle.setScale({paddle.getScale().x + 0.1f, 1.f});
+                it->hp--;
+                
+                if (it->hp <= 0) {
+                    it = bricks.erase(it);
+                    score += 10;
+                    scoreText.setString("SCORE: " + std::to_string(score) + "  LEVEL: " + std::to_string(level));
+                    if (score % 50 == 0) {
+                        paddle.setScale(sf::Vector2f(paddle.getScale().x + 0.1f, paddle.getScale().y));
+                    }
+                } else {
+                    it->sprite.setColor(sf::Color::White);
                 }
                 break;
+            } else {
+                ++it;
             }
         }
 
-if (bricks.empty() && !levelCleared) {
-    levelCleared = true;
-    level++;
+        if (bricks.empty() && !levelCleared) {
+            levelCleared = true;
+            level++;
 
-    ball.setPosition({WINDOW_WIDTH / 2.f, WINDOW_HEIGHT / 2.f});
-    float speed = std::min(200.f + (level * 15.f), 400.f);
-    ballVelocity = {speed, -speed};
+            ball.setPosition({WINDOW_WIDTH / 2.f, WINDOW_HEIGHT / 2.f});
+            float speed = std::min(200.f + (level * 15.f), 400.f);
+            ballVelocity = {speed, -speed};
 
-    for (int i = 0; i < 8; ++i) {
-        for (int j = 0; j < (3 + level); ++j) {
-            sf::Sprite newBrick(brickTexture);
+            for (int i = 0; i < 8; ++i) {
+                for (int j = 0; j < (3 + level); ++j) {
+                    GameBrick gameBrick(brickTexture);
+                    
+                    if (j < 2) {
+                        gameBrick.hp = 2;
+                        gameBrick.sprite.setColor(sf::Color(150, 150, 150));
+                    } else {
+                        gameBrick.hp = 1;
+                        gameBrick.sprite.setColor(sf::Color::White);
+                    }
 
-            newBrick.setScale({
-                (float)BRICK_WIDTH / newBrick.getLocalBounds().size.x,
-                (float)BRICK_HEIGHT / newBrick.getLocalBounds().size.y
-            });
+                    gameBrick.sprite.setScale(sf::Vector2f(
+                        (float)BRICK_WIDTH / gameBrick.sprite.getLocalBounds().size.x,
+                        (float)BRICK_HEIGHT / gameBrick.sprite.getLocalBounds().size.y
+                    ));
 
-            newBrick.setPosition({
-                (float)i * (BRICK_WIDTH + BRICK_OFFSET) + 15.f,
-                (float)j * (BRICK_HEIGHT + BRICK_OFFSET) + 60.f
-            });
+                    gameBrick.sprite.setPosition(sf::Vector2f(
+                        (float)i * (BRICK_WIDTH + BRICK_OFFSET) + 15.f,
+                        (float)j * (BRICK_HEIGHT + BRICK_OFFSET) + 60.f
+                    ));
 
-            bricks.push_back(newBrick);
+                    bricks.push_back(gameBrick);
+                }
+            }
+
+            scoreText.setString(
+                "SCORE: " + std::to_string(score) +
+                "  LEVEL: " + std::to_string(level)
+            );
+
+            levelCleared = false;
         }
-    }
-
-    scoreText.setString(
-        "SCORE: " + std::to_string(score) +
-        "  LEVEL: " + std::to_string(level)
-    );
-
-    levelCleared = false; // BURAYA
-}
 
         window.clear(sf::Color::Black);
         window.draw(paddle);
         window.draw(ball);
-        for (auto& brick : bricks) window.draw(brick);
+        for (auto& brick : bricks) window.draw(brick.sprite);
         window.draw(scoreText);
         window.display();
     }
