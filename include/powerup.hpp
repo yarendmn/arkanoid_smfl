@@ -9,7 +9,8 @@
 enum class PowerUpType {
     ExpandPaddle,
     SlowBall,
-    SpeedBall
+    SpeedBall,
+    MultiBall 
 };
 
 struct PowerUp {
