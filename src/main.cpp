@@ -29,10 +29,11 @@ int main() {
     }
 
     // ===================================================
-    // SCORE & LEVEL
+    // SCORE & LEVEL & LIVES
     // ===================================================
     int score = 0;
     int level = 1;
+    int lives = 3;
   
 
     sf::Text scoreText(font);
@@ -274,11 +275,21 @@ int main() {
 
             // --- TÜM TOPLAR DÜŞTÜYSE OYUNU DEVAM ETTİR (Şimdilik) ---
             if (balls.empty() && !bricks.empty() && !isTransitioning) {
-                BallInstance newBall(ballTexture);
-                newBall.sprite.setPosition({WINDOW_WIDTH / 2.f, WINDOW_HEIGHT / 2.f});
-                float speed = std::min(200.f + level * 15.f, 400.f);
-                newBall.velocity = {speed, -speed};
-                balls.push_back(newBall);
+
+                lives--;
+
+               if(lives > 0) {
+                    BallInstance newBall(ballTexture);
+                    newBall.sprite.setPosition({WINDOW_WIDTH / 2.f, WINDOW_HEIGHT / 2.f});
+                    float speed = std::min(200.f + level * 15.f, 400.f);
+                    newBall.velocity = {speed, -speed};
+                    balls.push_back(newBall);
+
+                    paddle.setPosition({(WINDOW_WIDTH - paddle.getGlobalBounds().size.x) / 2.f, WINDOW_HEIGHT - 50.f});
+            }
+            else {
+                std::cout << "OYUN BİTTİ! SKORUNUZ: " << score << "\n";
+                window.close();
             }
 
             // ===============================================
@@ -363,7 +374,7 @@ int main() {
         // -----------------------------------------------
         // UI
         // -----------------------------------------------
-        scoreText.setString("SCORE: " + std::to_string(score) + "   LEVEL: " + std::to_string(level));
+        scoreText.setString("SCORE: " + std::to_string(score) + "   LEVEL: " + std::to_string(level) + "   LIVES: " + std::to_string(lives));
 
         // -----------------------------------------------
         // DRAW
